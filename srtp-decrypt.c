@@ -102,7 +102,7 @@ static void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr,
 }
 
 static void usage(const char *arg0) {
-  fprintf(stderr, "usage: %s -k <base64 SDES key> [-d <rtp offset in frames>]\n", arg0);
+  fprintf(stderr, "usage: %s -k <base64 SDES key> [-d <rtp offset in frames>] [-t <srtp tag length>]\n", arg0);
   exit(1);
 }
 
@@ -112,14 +112,18 @@ int main(int argc, char **argv) {
   char errbuf[PCAP_ERRBUF_SIZE];
   pcap_t *pcap;
   unsigned char *sdes = NULL;
+  int taglen = 10;
 
-  while ((c = getopt(argc, argv, "k:d:")) != -1) {
+  while ((c = getopt(argc, argv, "k:d:t:")) != -1) {
     switch (c) {
     case 'k':
       sdes = (unsigned char *) optarg;
       break;
     case 'd':
       rtp_offset = atoi(optarg);
+      break;
+    case 't':
+      taglen = atoi(optarg);
       break;
     default:
       usage(argv[0]);
@@ -132,7 +136,7 @@ int main(int argc, char **argv) {
 
   decode_sdes(sdes, key, salt);
 
-  s = srtp_create(SRTP_ENCR_AES_CM, SRTP_AUTH_HMAC_SHA1, 10,
+  s = srtp_create(SRTP_ENCR_AES_CM, SRTP_AUTH_HMAC_SHA1, taglen,
     SRTP_PRF_AES_CM, 0);
   assert(s != NULL);
   srtp_setkey(s, key, sizeof(key), salt, sizeof(salt));
