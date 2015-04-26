@@ -513,6 +513,16 @@ static int srtp_crypt (srtp_session_t *s, uint8_t *buf, size_t len)
     return 0;
 }
 
+/**
+ * Sets the sequence number in the session.
+ * Should be called with the first RTP packet
+ *
+ * @param buf First RTP packet to be encrypted/digested
+ */
+void
+srtp_init_seq (srtp_session_t *s, uint8_t *buf) {
+    s->rtp_seq = rtp_seq(buf);
+}
 
 /**
  * Turns a RTP packet into a SRTP packet: encrypt it, then computes

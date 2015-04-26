@@ -64,8 +64,9 @@ static void hexdump(const void *ptr, size_t size) {
   }
 }
 
-static int rtp_offset = 42 /* 14 + 20 + 8 */;
+static int rtp_offset = -1; 
 static int frame_nr = -1;
+static int decoded_packets = 0;
 static struct timeval start_tv = {0, 0};
 
 static void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr,
@@ -76,9 +77,6 @@ static void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr,
   struct timeval delta;
 
   frame_nr += 1;
-  if (start_tv.tv_sec == 0 && start_tv.tv_sec == 0) {
-    start_tv = hdr->ts;
-  } 
 
   if (hdr->caplen < rtp_offset) {
     fprintf(stderr, "frame %d dropped: too short\n", frame_nr);
@@ -88,21 +86,33 @@ static void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr,
   memcpy(buffer, bytes + rtp_offset, hdr->caplen - rtp_offset);
   pktsize = hdr->caplen - rtp_offset;
 
+  if (frame_nr == 0) {
+    start_tv = hdr->ts;
+  } 
+  
+  if (decoded_packets == 0) {
+    srtp_init_seq (s, buffer);
+  }
+
   ret = srtp_recv(s, buffer, &pktsize);
   if (ret != 0) {
     fprintf(stderr, "frame %d dropped: decoding failed '%s'\n", frame_nr,
       strerror(ret));
+
     return;
   }
+
+  decoded_packets++;
 
   timersub(&hdr->ts, &start_tv, &delta);
   printf("%02ld:%02ld.%06lu\n", delta.tv_sec/60, delta.tv_sec%60, delta.tv_usec);
 
   hexdump(buffer, pktsize);
+
 }
 
 static void usage(const char *arg0) {
-  fprintf(stderr, "usage: %s -k <base64 SDES key> [-d <rtp offset in frames>] [-t <srtp tag length>]\n", arg0);
+  fprintf(stderr, "usage: %s -k <base64 SDES key> [-d <rtp byte offset in packet>] [-t <srtp hmac tag length in bytes>]\n", arg0);
   exit(1);
 }
 
@@ -113,6 +123,7 @@ int main(int argc, char **argv) {
   pcap_t *pcap;
   unsigned char *sdes = NULL;
   int taglen = 10;
+  struct bpf_program pcap_filter;
 
   while ((c = getopt(argc, argv, "k:d:t:")) != -1) {
     switch (c) {
@@ -147,6 +158,19 @@ int main(int argc, char **argv) {
     exit(1);
   }
   assert(pcap != NULL);
+
+  // We are only interested in udp traffic
+  if (pcap_compile(pcap, &pcap_filter, "udp", 1, PCAP_NETMASK_UNKNOWN) == 0) {
+    pcap_setfilter(pcap, &pcap_filter);
+  }
+
+  if (rtp_offset == -1) {
+    switch(pcap_datalink(pcap)) {
+        case DLT_LINUX_SLL: rtp_offset = 44; break; /* 16 + 20 + 8 */;
+        default:
+            rtp_offset = 42; /* 14 + 20 + 8 */;
+    }  
+  }
 
   pcap_loop(pcap, 0, handle_pkt, NULL);
 
