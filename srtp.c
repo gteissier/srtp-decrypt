@@ -837,6 +837,6 @@ srtcp_recv (srtp_session_t *s, uint8_t *buf, size_t *lenp)
 
     len -= 4; /* Remove SRTCP index before decryption */
     *lenp = len;
-    return srtp_crypt (s, buf, len);
+    return srtcp_crypt (s, buf, len);
 }
 
