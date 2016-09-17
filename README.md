@@ -22,10 +22,9 @@ Moreover, RTP offset in frames is expected to be constant, by default 42, but ca
 How to use
 ==========
 
-How to use it:
- 
-1.      Get network capture.
-2.      Filter RTP only packets and export from wireshark in .pcap format (that is important as it understand .pcap only), better use SSRC filtering too for different media sessions.
+1.Get network capture.
+2.Filter RTP only packets and export from wireshark in .pcap format (that is important as it understand .pcap only), better use SSRC filtering too for different media sessions.
+
 3.      For SDES (p-series) media run srtp-decrypt like:
 o       ./srtp-decrypt -k crypto-inline-from-SIP-SDP -f 4 < filtered-rtp-from-above-name.pcap > dump-file–name.txt
 4.      For DTLS (soft-phone) media run srtp-decrypt like:
