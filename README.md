@@ -33,6 +33,7 @@ How to use
 7. After that you can use Telephony -> RTP -> Analyze Stream -> Player (use RTP timestamp for decoding) -> Play
  
 Here is how to use it in general:
+=================================
  
 ./srtp-decrypt
 usage: ./srtp-decrypt [-k <base64 SDES key>] | [-m <base64 key> -s <base64 salt>] [-d <rtp byte offset in packet>] [-t <srtp hmac tag length in bytes>] [-f <srtp flags>]
