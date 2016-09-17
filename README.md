@@ -22,6 +22,8 @@ Moreover, RTP offset in frames is expected to be constant, by default 42, but ca
 how to use
 ==========
 
+- DO NOT COPY / PASTE COMMANDS BELOW - they have special formating to display correctly on the web page - enter them manually instead !!! 
+
 1. Get network capture.
 2. Filter RTP only packets and export from wireshark in .pcap format (that is important as it understand .pcap only), better use SSRC filtering too for different media sessions.
 3. For SDES (p-series) media run srtp-decrypt like:
