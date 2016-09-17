@@ -31,18 +31,18 @@ How to use
 5. In wireshark select File->"Import From Hex Dump”, navigate to dump-file-name.txt, select “Dummy Header”->”UDP”, enter Source and Destination ports, press OK
 6. Right click on any packet, select "Decode As" -> RTP
 7. After that you can use Telephony -> RTP -> Analyze Stream -> Player (use RTP timestamp for decoding) -> Play
- 
+
+
 Here is how to use it in general:
 =================================
- 
+
 ./srtp-decrypt
 usage: ./srtp-decrypt [-k <base64 SDES key>] | [-m <base64 key> -s <base64 salt>] [-d <rtp byte offset in packet>] [-t <srtp hmac tag length in bytes>] [-f <srtp flags>]
-where <srtp flags> is OR'ed decimal of:
-                0x1  - do not encrypt SRTP packets
-                0x2  - do not encrypt SRTCP packets
-                0x4  - authenticate only SRTCP packets
-                0x10 - use Roll-over-Counter Carry mode 1
-                0x20 - use Roll-over-Counter Carry mode 2
-                0x30 - use Roll-over-Counter Carry mode 3 (insecure)
- 
- 
+
+- where <srtp flags> is OR'ed decimal of:
+  - 0x1  - do not encrypt SRTP packets
+  - 0x2  - do not encrypt SRTCP packets
+  - 0x4  - authenticate only SRTCP packets
+  - 0x10 - use Roll-over-Counter Carry mode 1
+  - 0x20 - use Roll-over-Counter Carry mode 2
+  - 0x30 - use Roll-over-Counter Carry mode 3 (insecure)
