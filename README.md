@@ -19,7 +19,7 @@ Isolating a single RTP flow from a network capture is a hard job, too hard to be
 Network capture shall not contain ICMP, ARP or reverse RTP flow for example, as those packets will not be deciphered correctly by the tool.
 Moreover, RTP offset in frames is expected to be constant, by default 42, but can be set to 46 in case of 802.1q tagging.
 
-How to use
+how to use
 ==========
 
 1. Get network capture.
@@ -33,7 +33,7 @@ How to use
 7. After that you can use Telephony -\> RTP -> Analyze Stream -\> Player (use RTP timestamp for decoding) -\> Play
 
 
-Here is how to use it in general:
+here is how to use it in general:
 =================================
 
 ./srtp-decrypt [-k \<base64 SDES key\>] | [-m \<base64 key\> -s \<base64 salt\>] [-d \<rtp byte offset in packet\>] [-t \<srtp hmac tag length in bytes\>] [-f \<srtp flags\>]
