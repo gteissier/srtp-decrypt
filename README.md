@@ -36,10 +36,9 @@ How to use
 Here is how to use it in general:
 =================================
 
-./srtp-decrypt
-usage: ./srtp-decrypt [-k <base64 SDES key>] | [-m <base64 key> -s <base64 salt>] [-d <rtp byte offset in packet>] [-t <srtp hmac tag length in bytes>] [-f <srtp flags>]
+./srtp-decrypt [-k \<base64 SDES key\>] | [-m \<base64 key\> -s \<base64 salt\>] [-d \<rtp byte offset in packet\>] [-t \<srtp hmac tag length in bytes\>] [-f \<srtp flags\>]
 
-- where <srtp flags> is OR'ed decimal of:
+- where \<srtp flags\> is OR'ed decimal of:
   - 0x1  - do not encrypt SRTP packets
   - 0x2  - do not encrypt SRTCP packets
   - 0x4  - authenticate only SRTCP packets
