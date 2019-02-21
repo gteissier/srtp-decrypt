@@ -468,11 +468,11 @@ static int srtp_crypt (srtp_session_t *s, uint8_t *buf, size_t len)
     {
         uint16_t extlen;
 
-        offset += 2;
-        if (len < offset + 2)
+        offset += 4;
+        if (len < offset)
             return EINVAL;
 
-        memcpy (&extlen, buf + offset, 2);
+        memcpy (&extlen, buf + offset - 2, 2);
         offset += htons (extlen)*4; // skips RTP extension header
     }
 
