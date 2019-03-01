@@ -8,45 +8,54 @@
 #include <getopt.h>
 #include <assert.h>
 
+#include <glib.h>
+
 #include "srtp.h"
 
 #include <pcap.h>
 
-static const char b64chars[] = 
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static void decode_sdes(
+    unsigned char *in,
+    unsigned char *key,
+    unsigned char *salt) {
+  guchar * gbuf = NULL;
+  gsize    out_len = 0;
 
-static unsigned char shiftb64(unsigned char c) {
-  char *p = strchr(b64chars, c);
-  assert(p);
-  return p-b64chars;
+  gbuf = g_base64_decode((gchar*)in, &out_len);
+  assert(gbuf && (out_len == 30));
+
+  memcpy(key, gbuf, 16);
+  memcpy(salt, gbuf+16, 14);
+
+  g_free(gbuf);
 }
 
-static void decode_block(unsigned char *in, unsigned char *out) {
-  unsigned char shifts[4];
-  int i;
+static void decode_key(
+		unsigned char *in,
+		unsigned char *key)  {
+	guchar * gbuf = NULL;
+	gsize    out_len = 0;
 
-  for (i = 0; i < 4; i++) {
-    shifts[i] = shiftb64(in[i]);
-  }
+	gbuf = g_base64_decode((gchar*)in, &out_len);
+	assert(gbuf && (out_len == 16));
 
-  out[0] = (shifts[0]<<2)|(shifts[1]>>4);
-  out[1] = (shifts[1]<<4)|(shifts[2]>>2);
-  out[2] = (shifts[2]<<6)|shifts[3];
+	memcpy(key, gbuf, 16);
+
+	g_free(gbuf);
 }
 
-static void decode_sdes(unsigned char *in,
-  unsigned char *key, unsigned char *salt) {
-  int i;
-  size_t len = strlen((char *) in);
-  assert(len == 40);
-  unsigned char raw[30];
+static void decode_salt(
+		unsigned char *in,
+		unsigned char *salt) {
+	guchar * gbuf = NULL;
+	gsize    out_len = 0;
 
-  for (i = 0; 4*i < len; i++) {
-    decode_block(in+4*i, raw+3*i);
-  }
+	gbuf = g_base64_decode((gchar*)in, &out_len);
+	assert(gbuf && (out_len == 14));
 
-  memcpy(key, raw, 16);
-  memcpy(salt, raw+16, 14);
+	memcpy(salt, gbuf, 14);
+
+	g_free(gbuf);
 }
 
 static srtp_session_t *s = NULL;
@@ -64,7 +73,7 @@ static void hexdump(const void *ptr, size_t size) {
   }
 }
 
-static int rtp_offset = -1; 
+static int rtp_offset = -1;
 static int frame_nr = -1;
 static int decoded_packets = 0;
 static struct timeval start_tv = {0, 0};
@@ -88,8 +97,8 @@ static void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr,
 
   if (frame_nr == 0) {
     start_tv = hdr->ts;
-  } 
-  
+  }
+
   if (decoded_packets == 0) {
     srtp_init_seq (s, buffer);
   }
@@ -112,7 +121,10 @@ static void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr,
 }
 
 static void usage(const char *arg0) {
-  fprintf(stderr, "usage: %s -k <base64 SDES key> [-d <rtp byte offset in packet>] [-t <srtp hmac tag length in bytes>]\n", arg0);
+  fprintf(stderr, "usage: %s [-k <base64 SDES key>] | [-m <base64 key> -s <base64 salt>] [-d <rtp byte offset in packet>] [-t <srtp hmac tag length in bytes>] [-f <srtp flags>]\n", arg0);
+  fprintf(stderr, "where <srtp flags> is OR'ed decimal of:\n\t0x1  - do not encrypt SRTP packets\n\t0x2  - do not encrypt SRTCP packets\n\t0x4  - authenticate only SRTCP packets\n");
+  fprintf(stderr, "\t0x10 - use Roll-over-Counter Carry mode 1\n\t0x20 - use Roll-over-Counter Carry mode 2\n\t0x30 - use Roll-over-Counter Carry mode 3 (insecure)\n");
+
   exit(1);
 }
 
@@ -121,14 +133,26 @@ int main(int argc, char **argv) {
   int c;
   char errbuf[PCAP_ERRBUF_SIZE];
   pcap_t *pcap;
-  unsigned char *sdes = NULL;
+  unsigned char *sdes  = NULL;
+  unsigned char *pkey  = NULL;
+  unsigned char *psalt = NULL;
   int taglen = 10;
   struct bpf_program pcap_filter;
+  unsigned srtp_flags = 0;
 
-  while ((c = getopt(argc, argv, "k:d:t:")) != -1) {
+  while ((c = getopt(argc, argv, "k:d:t:m:s:f:")) != -1) {
     switch (c) {
     case 'k':
       sdes = (unsigned char *) optarg;
+      break;
+    case 'm':
+      pkey = (unsigned char *) optarg;
+      break;
+    case 's':
+      psalt = (unsigned char *) optarg;
+      break;
+    case 'f':
+      srtp_flags |= (unsigned)atoi(optarg);
       break;
     case 'd':
       rtp_offset = atoi(optarg);
@@ -142,13 +166,21 @@ int main(int argc, char **argv) {
   }
 
   if (sdes == NULL) {
-    usage(argv[0]);
+	  if ((pkey == NULL) || (psalt == NULL))
+		  usage(argv[0]);
+	  else {
+		  decode_key(pkey, key);
+		  decode_salt(psalt, salt);
+	  }
+  }
+  else {
+	  decode_sdes(sdes, key, salt);
   }
 
-  decode_sdes(sdes, key, salt);
+  srtp_flags &= SRTP_FLAGS_MASK;
 
   s = srtp_create(SRTP_ENCR_AES_CM, SRTP_AUTH_HMAC_SHA1, taglen,
-    SRTP_PRF_AES_CM, 0);
+    SRTP_PRF_AES_CM, srtp_flags);
   assert(s != NULL);
   srtp_setkey(s, key, sizeof(key), salt, sizeof(salt));
 
@@ -169,7 +201,7 @@ int main(int argc, char **argv) {
         case DLT_LINUX_SLL: rtp_offset = 44; break; /* 16 + 20 + 8 */;
         default:
             rtp_offset = 42; /* 14 + 20 + 8 */;
-    }  
+    }
   }
 
   pcap_loop(pcap, 0, handle_pkt, NULL);
