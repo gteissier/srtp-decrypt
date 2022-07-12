@@ -50,6 +50,7 @@ static void decode_sdes(unsigned char *in,
 }
 
 static srtp_session_t *s = NULL;
+static int is_srtp_encrypt = 0;
 
 static void hexdump(const void *ptr, size_t size) {
   int i, j;
@@ -66,10 +67,11 @@ static void hexdump(const void *ptr, size_t size) {
 
 static int rtp_offset = -1; 
 static int frame_nr = -1;
-static int decoded_packets = 0;
+static int processed_packets = 0;
 static struct timeval start_tv = {0, 0};
 
-static void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr,
+
+static void process_rtp(u_char *arg, const struct pcap_pkthdr *hdr,
   const u_char *bytes) {
   unsigned char buffer[2048];
   size_t pktsize;
@@ -90,11 +92,16 @@ static void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr,
     start_tv = hdr->ts;
   } 
   
-  if (decoded_packets == 0) {
+  if (processed_packets == 0) {
     srtp_init_seq (s, buffer);
   }
 
-  ret = srtp_recv(s, buffer, &pktsize);
+  if(is_srtp_encrypt) {
+    ret = srtp_send(s, buffer, &pktsize, sizeof(buffer));
+  } else {
+    ret = srtp_recv(s, buffer, &pktsize);
+  }
+
   if (ret != 0) {
     fprintf(stderr, "frame %d dropped: decoding failed '%s'\n", frame_nr,
       strerror(ret));
@@ -102,7 +109,7 @@ static void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr,
     return;
   }
 
-  decoded_packets++;
+  processed_packets++;
 
   timersub(&hdr->ts, &start_tv, &delta);
   printf("%02ld:%02ld.%06lu\n", delta.tv_sec/60, delta.tv_sec%60, delta.tv_usec);
@@ -125,7 +132,7 @@ int main(int argc, char **argv) {
   int taglen = 10;
   struct bpf_program pcap_filter;
 
-  while ((c = getopt(argc, argv, "k:d:t:")) != -1) {
+  while ((c = getopt(argc, argv, "k:d:t:E")) != -1) {
     switch (c) {
     case 'k':
       sdes = (unsigned char *) optarg;
@@ -135,6 +142,9 @@ int main(int argc, char **argv) {
       break;
     case 't':
       taglen = atoi(optarg);
+      break;
+    case 'E':
+      is_srtp_encrypt = 1;
       break;
     default:
       usage(argv[0]);
@@ -172,7 +182,7 @@ int main(int argc, char **argv) {
     }  
   }
 
-  pcap_loop(pcap, 0, handle_pkt, NULL);
+  pcap_loop(pcap, 0, process_rtp, NULL);
 
   srtp_destroy(s);
 
